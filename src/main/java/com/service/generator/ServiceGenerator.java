@@ -5,9 +5,17 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import javax.tools.JavaCompiler;
+import javax.tools.JavaCompiler.CompilationTask;
+import javax.tools.JavaFileObject;
+import javax.tools.StandardJavaFileManager;
+import javax.tools.ToolProvider;
 
 import freemarker.template.Configuration;
 import freemarker.template.Template;
@@ -15,52 +23,47 @@ import freemarker.template.TemplateException;
 
 public class ServiceGenerator {
 
-
-
 	private String base_package;
 	private String resultClass;
 	private String templateDirectory;
 
-	public ServiceGenerator(String base_package,String resultClass,String templateDirectory) {
+	public ServiceGenerator(String base_package, String resultClass, String templateDirectory) {
 		this.base_package = base_package;
 		this.resultClass = resultClass;
 		this.templateDirectory = templateDirectory;
 
-
-
 	}
 
-
-	public void generate(List<String>  classNames) {
-		String path =this.getProjectPath();
-		this.generate(  classNames, path);
-
+	public void generate(List<String> classNames) {
+		String path = this.getProjectPath();
+		this.generate(classNames, path);
 
 	}
-
 
 	public String getProjectPath() {
-		File file=new File("");
+		File file = new File("");
 		try {
 			String canonicalPath = file.getCanonicalPath();
-			String path=canonicalPath+"//src//main//java";
+			String path = canonicalPath + "//src//main//java";
 			return path;
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
 		}
 	}
+
 	public String getProjectTestPath() {
-		File file=new File("");
+		File file = new File("");
 		try {
 			String canonicalPath = file.getCanonicalPath();
-			String path=canonicalPath+"//src//test//java";
+			String path = canonicalPath + "//src//test//java";
 			return path;
 		} catch (IOException e) {
 			e.printStackTrace();
 			return null;
 		}
 	}
+
 	public void generate(List<String>  classNames,String baseDirectory) {
 
 
@@ -84,10 +87,13 @@ public class ServiceGenerator {
 
 
 			Template resultclassTemplate = configuration.getTemplate("resultclass.ftl");
+			Template intercepterTemplate = configuration.getTemplate("intercepter.ftl");
+			Template formTemplate = configuration.getTemplate("html_form.ftl");
+
 			Map data = new HashMap<>();
 			data.put("package", this.base_package);
 			data.put("result", this.resultClass);
-
+			data.put("title", "storage");
 			String directory = this.getPackageDirectory(baseDirectory);
 
 
@@ -111,46 +117,123 @@ public class ServiceGenerator {
 					return ;
 				}
 				generate(serviceTemplate,data,serviceFile);
+
+
+				List<ReflectEntity> fields = this.getField(className);
+
+
+				data.put("fields", fields);
 				generate(serviceimpTemplate,data,serviceImpFile);
+
+				File file=new File("");
+				String canonicalPath = file.getCanonicalPath();
+				String path=canonicalPath+"//src//main//resources//static//";
+
+				String lowerCaseClassName=Character.toString(Character.toLowerCase(className.charAt(0)))+className.substring(1, className.length());
+
+				File formFile = new File(path+lowerCaseClassName+".html");
+				createParentDirectoryAndDeleteFile(formFile);
+
+				generate(formTemplate,data,formFile);
+
+				data.remove("fields");
 				generate(controllerTemplate,data,controllerFile);
 				generate(testTemplate,data,testImpFile);
+
+
 			}
 
+			File intercepterFile = new File(directory+"intercepter//"+"Login"+"Intercepter.java");
+			boolean success5 = createParentDirectoryAndDeleteFile(intercepterFile);
+			generate(intercepterTemplate,data,intercepterFile);
 			data.put("className", this.resultClass);
 			File resultClass = new File(directory+"entity//custom//"+this.resultClass+".java");
 
-			boolean success5 = createParentDirectoryAndDeleteFile(resultClass);
+			boolean success6 = createParentDirectoryAndDeleteFile(resultClass);
 			generate(resultclassTemplate,data,resultClass);
 
-			File applicationFile = new File(directory+"Application.java");
-			boolean success6 = createParentDirectoryAndDeleteFile(applicationFile);
-
+			File applicationFile = new File(directory+"config//Application.java");
+			boolean success7 = createParentDirectoryAndDeleteFile(applicationFile);
 			generate(applicationTemplate,data,applicationFile);
-
-
 			File utilsFile = new File(directory+"utils");
-			boolean success7 = createParentDirectoryAndDeleteFile(utilsFile);
+			boolean success9 = createParentDirectoryAndDeleteFile(utilsFile);
 
 
-		}
-		catch (IOException e) {
-			// TODO Auto-generated catch block
+
+
+		}catch(Exception e) {
+
 			e.printStackTrace();
 		}
+	}
 
+	public List<ReflectEntity> getField(String className) {
+
+		File file = new File(this.getPackageDirectory(this.getProjectPath()));
+
+		File packagePath = this.getPackagePath("entity", file);
+		File[] filesUnderPackage = packagePath.listFiles();
+		for (File javaClass : filesUnderPackage) {
+			if (!javaClass.getName().endsWith("Example.java") && javaClass.isFile()
+					&& javaClass.getName().contains(className)) {
+				String absolutePath = javaClass.getAbsolutePath();
+
+				String substring = absolutePath.substring(absolutePath.indexOf("java") + 5);
+				String fullClassName = substring.replace('\\', '.').replaceAll(".java", "");
+
+				Class<?> clazz;
+				try {
+
+					JavaCompiler systemJavaCompiler = ToolProvider.getSystemJavaCompiler();
+					StandardJavaFileManager standardFileManager = systemJavaCompiler.getStandardFileManager(null, null,
+							null);
+					Iterable<? extends JavaFileObject> javaFileObjects = standardFileManager
+							.getJavaFileObjects(javaClass.getAbsolutePath());
+					List<String> optionsList = new ArrayList<String>();
+					optionsList.add("-Xlint:unchecked");
+					// …Ë÷√classpath
+					optionsList.add("-d");
+					String projectPath = new File("").getCanonicalPath();
+					optionsList.add(projectPath + "//target//classes");
+					CompilationTask run = systemJavaCompiler.getTask(null, standardFileManager, null, optionsList, null,
+							javaFileObjects);
+					if (run.call()) {
+						clazz = Class.forName(fullClassName);
+						Field[] fields = clazz.getDeclaredFields();
+
+						List<ReflectEntity> reflectEntities = new ArrayList<>();
+						for (Field field : fields) {
+							String fieldName = field.getName();
+							Class<?> parameterTypes = field.getDeclaringClass();
+							String paramTypeName = parameterTypes.getSimpleName();
+							ReflectEntity entity = new ReflectEntity(fieldName, paramTypeName);
+							reflectEntities.add(entity);
+						}
+						return reflectEntities;
+					}
+
+				} catch (ClassNotFoundException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
+			}
+
+		}
+		return null;
 
 	}
 
-
 	public String getPackageDirectory(String classDirectory) {
 		String[] split = this.base_package.split("\\.");
-		StringBuilder builder=new StringBuilder();
-		builder.append(classDirectory+"\\");
+		StringBuilder builder = new StringBuilder();
+		builder.append(classDirectory + "\\");
 		for (String string : split) {
-			builder.append(string+"\\");
+			builder.append(string + "\\");
 		}
 
-		String directory=builder.toString();
+		String directory = builder.toString();
 		System.out.println(directory);
 		return directory;
 	}
@@ -168,33 +251,49 @@ public class ServiceGenerator {
 			e.printStackTrace();
 		}
 
-
-
 	}
 
 	private static boolean createParentDirectoryAndDeleteFile(File serviceFile) {
 		File parentFile = serviceFile.getParentFile();
 		boolean exists = parentFile.exists();
 		boolean mkdirs;
-		if(!exists) {
+		if (!exists) {
 			mkdirs = parentFile.mkdirs();
-		}else {
-			mkdirs=true;
+		} else {
+			mkdirs = true;
 		}
 
-		if(mkdirs)
-		{
-			if(serviceFile.exists()) {
+		if (mkdirs) {
+			if (serviceFile.exists()) {
 				serviceFile.delete();
 			}
 			return true;
 
-		}else {
+		} else {
 			System.out.println("creating directory error");
 			return false;
 		}
 
-
 	}
 
+	public File getPackagePath(String name, File file) {
+
+		if (file.isDirectory()) {
+			System.out.println(file.getName());
+			if (file.getName().contains(name)) {
+				return file;
+			}
+			File[] listFiles = file.listFiles();
+			for (File file2 : listFiles) {
+				File mapperPath = this.getPackagePath(name, file2);
+				if (mapperPath == null) {
+					continue;
+				} else {
+					return mapperPath;
+				}
+			}
+		}
+
+		return null;
+	}
 }

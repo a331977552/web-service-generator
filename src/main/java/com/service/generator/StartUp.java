@@ -11,10 +11,8 @@ import java.util.List;
 
 public class StartUp {
 
-	public static final String BASE_PACKAGE="com.storage";
-	public static final String RESULT_CLASS="StorageResult";
-
-
+	public static final String BASE_PACKAGE = "com.storage";
+	public static final String RESULT_CLASS = "StorageResult";
 
 	public static void main(String[] args) throws Exception {
 
@@ -22,46 +20,39 @@ public class StartUp {
 		String path = resource.getPath().substring(1);
 		System.out.println(path);
 
-
-		MMyBatisGenerator batisGenerator=new MMyBatisGenerator(path);
+		MMyBatisGenerator batisGenerator = new MMyBatisGenerator(path);
 		batisGenerator.generate();
 		int lastIndexOf = path.lastIndexOf('/');
-		String templateDir = path.substring(0,lastIndexOf);
+		String templateDir = path.substring(0, lastIndexOf);
 		System.out.println(templateDir);
 
-		ServiceGenerator generator=new ServiceGenerator(BASE_PACKAGE, RESULT_CLASS,templateDir);
+		ServiceGenerator generator = new ServiceGenerator(BASE_PACKAGE, RESULT_CLASS, templateDir);
 		String classPath = generator.getProjectPath();
 		String directory = generator.getPackageDirectory(classPath);
-		File file=new File(directory);
+		File file = new File(directory);
 
+		File mapperPath = generator.getPackagePath("mapper", file);
 
-		File requestedPath=getMapperPath(file);
-		System.out.println(requestedPath.getAbsolutePath());
-		File[] listFiles = requestedPath.listFiles();
-		List<String> classNames=new ArrayList<>();
+		File[] listFiles = mapperPath.listFiles();
+		List<String> classNames = new ArrayList<>();
 
-		List<File> mappers=new ArrayList<>();
+		List<File> mappers = new ArrayList<>();
 
 		for (File name : listFiles) {
-			if(name.getName().endsWith("Mapper.java")) {
+			if (name.getName().endsWith("Mapper.java")) {
 				classNames.add(name.getName().substring(0, name.getName().lastIndexOf("Mapper")));
 				mappers.add(name);
 			}
 		}
-		for (String string : classNames) {
-			System.out.println(string);
-		}
 		generator.generate(classNames);
 
-
-
 		for (File mapper : mappers) {
-			StringBuilder builder=new StringBuilder();
-			BufferedReader bufferedReader=new BufferedReader(new FileReader(mapper));
-			String line=null;
+			StringBuilder builder = new StringBuilder();
+			BufferedReader bufferedReader = new BufferedReader(new FileReader(mapper));
+			String line = null;
 			while ((line = bufferedReader.readLine()) != null) {
 
-				if(line.startsWith("public interface")) {
+				if (line.startsWith("public interface")) {
 					builder.append("import org.apache.ibatis.annotations.Mapper;");
 					builder.append(System.getProperty("line.separator"));
 					builder.append("@Mapper");
@@ -72,7 +63,7 @@ public class StartUp {
 
 			}
 			bufferedReader.close();
-			BufferedWriter bufferedWriter=new BufferedWriter(new FileWriter(mapper));
+			BufferedWriter bufferedWriter = new BufferedWriter(new FileWriter(mapper));
 			bufferedWriter.write(builder.toString());
 			bufferedWriter.close();
 
@@ -80,34 +71,8 @@ public class StartUp {
 
 
 
-
-
-
-
-
-
 	}
 
-	private static File getMapperPath(File file) {
 
-
-		if(file.isDirectory()) {
-			System.out.println(file.getName());
-			if(file.getName().contains("mapper")) {
-				return file;
-			}
-			File[] listFiles = file.listFiles();
-			for (File file2 : listFiles) {
-				File mapperPath = getMapperPath(file2);
-				if(mapperPath==null) {
-					continue;
-				}else {
-					return mapperPath;
-				}
-			}
-		}
-
-		return null;
-	}
 
 }

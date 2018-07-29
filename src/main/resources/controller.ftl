@@ -30,7 +30,7 @@ public class ${className}Controller {
 		return this.service.get${className}ById(id);
 	}
 
-	@DeleteMapping("/delete/{id}")
+	@GetMapping("/delete/{id}")
 	public Object delete${className}ById(@PathVariable(name = "id") Integer id) {
 		return this.service.delete${className}ById(id);
 	}

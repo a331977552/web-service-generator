@@ -22,9 +22,9 @@ import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilde
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import  ${package}.entity.${className};
-
+import  ${package}.config.Application;
 @RunWith(SpringRunner.class)
-@SpringBootTest()
+@SpringBootTest(classes=Application.class)
 @AutoConfigureMockMvc
 public class ${className}Test {
 

@@ -1,13 +1,14 @@
 package ${package}.service.imp;
-
+import java.util.List;
 import ${package}.entity.${className};
 import ${package}.entity.custom.${result};
 import ${package}.service.${className}Service;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PutMapping;
 import ${package}.mapper.${className}Mapper;
 import ${package}.entity.${className}Example;
-
+import ${package}.entity.${className}Example.Criteria;
 @Service
 public class ${className}ServiceImp implements  ${className}Service{
 	@Autowired
@@ -39,7 +40,22 @@ public class ${className}ServiceImp implements  ${className}Service{
 	}
 	public ${result} get${className}ByExample(${className}  ${className?uncap_first} ){
 		
-		return ${result}.succeed();
+		
+		${className}Example example=new ${className}Example();
+		Criteria criteria = example.createCriteria();
+		
+		<#list fields as field>
+			if(${className?uncap_first}.get${field.name?cap_first}()!=null){
+				criteria.and${field.name?cap_first}EqualTo(${className?uncap_first}.get${field.name?cap_first}());
+			}
+		
+		</#list>
+		
+
+		List<${className}> results = this.${className?uncap_first}Mapper.selectByExample(example);
+		
+		
+		return ${result}.succeed(results);
 	}
 	public ${result} get${className}ById(Integer id){
 		if(id==null || id<0){
